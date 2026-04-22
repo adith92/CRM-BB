@@ -1,0 +1,42 @@
+{
+  "summary": "Frontend e2e testing of Relay CRM (Auth, Dashboard, Leads, Pipeline Kanban, Contacts, Activities, Global Search, Quick Create, Notifications, PWA, Mobile responsive). 27/27 critical UI flows passed after retest. No blocking bugs. Backend integration verified via direct API calls (drag-drop persistence proven via /api/opportunities GET).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "GlobalSearch CommandDialog (radix)", "issues": ["Radix Dialog a11y warnings: 'DialogContent requires a DialogTitle' and 'Missing Description or aria-describedby'. Cosmetic — accessibility only — wrap a VisuallyHidden DialogTitle/Description inside the cmdk dialog."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_2.json",
+    "/app/backend/tests/backend_test.py"
+  ],
+  "action_items": [
+    "Add VisuallyHidden DialogTitle/Description inside GlobalSearch CommandDialog to silence Radix a11y warnings (low priority, no functional impact).",
+    "Already-known from iteration_1: brute-force lockout uses request.client.host (k8s pod IP) — main agent should fix to X-Forwarded-For. Frontend is unaffected."
+  ],
+  "critical_code_review_comments": [
+    "AuthContext.login() stores access_token only — no refresh_token handling test was needed since access_token is long-lived enough; reload survival verified.",
+    "Opportunities.jsx onDrop is correctly optimistic with rollback on failure (load()) — verified by API-level check after drag.",
+    "AppShell uses fixed positioning + CSS var --sidebar-w and md:pl-[var(--sidebar-w)] — works for both collapsed and expanded states.",
+    "QuickCreate uses window.dispatchEvent('crm:refresh') for soft refresh; verified that Leads list refreshes after creation.",
+    "GlobalSearch CommandDialog (cmdk + radix) lacks DialogTitle/Description — produces console warnings; should wrap with VisuallyHidden for a11y compliance.",
+    "Login.jsx prefills admin credentials in dev — fine for demo but should be removed for production.",
+    "All interactive elements have data-testid attributes — excellent testability."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_2.json"
+  ],
+  "success_rate": {"backend": "not retested (95.8% from iteration_1)", "frontend": "100% (27/27 critical flows)"},
+  "test_credentials": "admin@acme.com / admin123 (verified working).",
+  "seed_data_creation": "Created one TEST_QC_Lead_<timestamp> via Quick Create flow; not cleaned up (transient demo data).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All frontend MVP flows verified end-to-end against the external preview URL https://137275d7-0916-46f0-884d-723a759b40b3.preview.emergentagent.com. Notes for future runs: (1) /signup is wrapped in PublicOnly — if a session exists it redirects to /dashboard; clear localStorage before testing /signup. (2) Kanban drag-drop uses HTML5 native dragstart/dragover/drop on <Card draggable> — synthetic DragEvent dispatchEvent does NOT fire React's onDragStart correctly; use Playwright mouse.move/down/up sequence instead, or page.evaluate to PATCH /opportunities/{id}/stage directly. After mouse-based drag the stage IS persisted (verified via GET /api/opportunities). (3) testids of interest: login-email/login-password/login-submit/login-error, google-login-btn, signup-(company|name|email|password|submit), nav-(dashboard|leads|pipeline|contacts|activities|settings), sidebar-toggle, topbar, open-global-search, global-search-input, quick-create-btn, qc-(lead|opportunity|contact|activity), qc-field-<name>, qc-submit, profile-menu, logout-btn, pipeline-kanban, kanban-col-<stage>, opp-card-<id>, mobile-bottom-nav, mobile-nav-<section>. (4) PWA assets /manifest.json and /service-worker.js both 200. (5) Backend issue from iteration_1 (brute-force lockup behind k8s ingress) is still open per main agent.",
+  "rca of the issue": "No new bugs found. Two test-script-only failures from initial run were RCA'd and re-verified as PASS: (a) /signup test was failing because the test reused a logged-in session; PublicOnly route guard correctly redirects authenticated users to /dashboard. Fix: clear localStorage before navigating to /signup. (b) Kanban drag test using `new DragEvent()` + dispatchEvent did not change stage because React's synthetic event system needs real browser-generated drag events for HTML5 native drag handlers; switching to Playwright mouse.down/move/up emulation triggers proper drag flow and the stage was persisted (confirmed via GET /api/opportunities returning the new stage)."
+}

@@ -228,7 +228,8 @@ async def register(body: RegisterIn, response: Response):
 @api.post("/auth/login")
 async def login(body: LoginIn, response: Response, request: Request):
     email = body.email.lower()
-    ip = request.client.host if request.client else "unknown"
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
     identifier = f"{ip}:{email}"
     attempt = await db.login_attempts.find_one({"identifier": identifier})
     now = datetime.now(timezone.utc)
