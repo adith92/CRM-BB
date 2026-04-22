@@ -28,6 +28,12 @@ Build a modular enterprise CRM SaaS inspired by Odoo and Zoho CRM. Multi-tenant,
 - PWA: manifest.json + service-worker.js (shell caching, never caches /api/).
 - All interactive elements have data-testid.
 
+## Phase 1 Extension (April 2026)
+- **Public Lead Capture**: Forms model + builder UI. Public routes `/f/:formId` and `/api/public/forms/{id}`. Embeddable script at `/api/public/forms/{id}/embed.js` (iframe loader). UTM tracking (source/medium/campaign/page_url). Rate limit 10/hour per IP+form. Honeypot field to deter bots. Each successful submission creates a Lead (score 50, source "Form: …", tags ['inbound','form']) AND a follow-up task Activity due next day. Forms can be toggled live/paused, previewed, edited, embedded, and their submissions inspected inline.
+- **Sales module**: Quotations (auto-numbered Q-YYYY-0001 per company/year, multi-line items with quantity/price/tax, computed subtotal/tax_total/total, status draft→sent→accepted→rejected→invoiced). One-click **opportunity → quote** conversion from Pipeline card menu. One-click **quote → order** conversion (auto-number O-YYYY-0001, items/totals copied, quote marked invoiced). Order status tracking (pending→confirmed→shipped→delivered→cancelled).
+- **Calendar**: Month grid (6×7) with prev/next/today navigation. Each cell shows up to 3 typed event chips (call/meeting/email/task) with overflow counter. Click a day to see its full list + quick "Schedule on this day". Schedule dialog creates an Activity with `due_date` (date+time), which appears on both Calendar and Activities pages. Backend endpoint `/api/calendar/events?start=&end=` returns activities in range.
+- Navigation expanded: Sales + Calendar + Forms added to sidebar. Mobile bottom nav focuses on 5 essentials (Home/Leads/Pipeline/Calendar/Tasks).
+
 ## Deferred / Backlog
 ### P0 (soon)
 - Partial PATCH models for Leads/Opportunities/Contacts/Activities (optional fields)
