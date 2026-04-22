@@ -1,0 +1,134 @@
+{
+  "theme": "Light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast - Tailored for Linear/Notion-like Enterprise App)",
+  "global_design_rules": {
+    "philosophy": "Sophisticated, modern minimalism. High contrast, neutral timeless aesthetic. No generic SaaS blue—use deep graphite for CTAs, structural grayscale for hierarchy, and very subtle, highly purposeful accent colors.",
+    "spacing_system": "Tight and structured for dashboard density (gap-4, gap-6), but generous padding inside containers (p-4 to p-6) to maintain clarity. Everything aligns strictly to a grid.",
+    "borders_and_shadows": "Rely on 1px solid borders (border-zinc-200) rather than shadows for structure. Use very subtle ambient shadows (shadow-sm) only for interactive or elevated components (cards, dropdowns, modals).",
+    "corner_radius": "Crisp and technical. Use rounded-md (6px) for cards/buttons, rounded-sm for small tags. No large pill shapes.",
+    "accessibility": "High contrast text. Focus rings must be visible (focus:ring-1 focus:ring-zinc-900)."
+  },
+  "typography": {
+    "headings": {
+      "family": "Satoshi, sans-serif",
+      "import_url": "https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400&display=swap",
+      "style_rules": "tracking-tight, leading-none, font-semibold to font-black. High contrast (text-zinc-900)."
+    },
+    "body": {
+      "family": "Inter, sans-serif",
+      "import_url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap",
+      "style_rules": "leading-relaxed, highly legible, text-zinc-600 for secondary, text-zinc-900 for primary."
+    },
+    "scale": {
+      "h1": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h2": "text-xl sm:text-2xl font-semibold tracking-tight",
+      "h3": "text-lg font-medium",
+      "body": "text-sm",
+      "small": "text-xs font-medium uppercase tracking-[0.1em]"
+    }
+  },
+  "color_palette": {
+    "background": {
+      "primary": "#FFFFFF",
+      "secondary": "#FAFAFA",
+      "tertiary": "#F4F4F5",
+      "sidebar": "#FAFAFA",
+      "header": "#FFFFFF"
+    },
+    "text": {
+      "primary": "#09090B",
+      "secondary": "#71717A",
+      "tertiary": "#A1A1AA",
+      "inverse": "#FFFFFF"
+    },
+    "border": {
+      "default": "#E4E4E7",
+      "focus": "#09090B",
+      "subtle": "#F4F4F5"
+    },
+    "brand_action": {
+      "primary_bg": "#18181B",
+      "primary_hover": "#27272A",
+      "primary_text": "#FFFFFF"
+    },
+    "status": {
+      "success": { "bg": "#DCFCE7", "text": "#14532D", "border": "#BBF7D0" },
+      "warning": { "bg": "#FEF3C7", "text": "#78350F", "border": "#FDE68A" },
+      "danger": { "bg": "#FEE2E2", "text": "#7F1D1D", "border": "#FECACA" },
+      "info": { "bg": "#DBEAFE", "text": "#1E3A8A", "border": "#BFDBFE" }
+    }
+  },
+  "layouts": {
+    "dashboard_shell": {
+      "type": "Holy Grail / Sidebar",
+      "sidebar": "w-64 (open) or w-16 (closed) fixed left. bg-zinc-50 border-r border-zinc-200. Clean hover states on navigation links with Lucide icons.",
+      "topbar": "h-16 fixed top, left-64 (adjusts with sidebar). bg-white border-b border-zinc-200. Contains Global Search (cmd+k style), notifications, quick create button, user profile.",
+      "main_content": "pt-16 pl-64 (or pl-16 when closed) bg-white min-h-screen.",
+      "mobile": "Bottom navigation bar (h-16) for core modules, hiding sidebar on small screens."
+    },
+    "dashboard_grid": {
+      "type": "Control Room Grid",
+      "classes": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6",
+      "widget_rules": "Summary metrics are col-span-1. Main charts/pipeline span 2 or 3 columns. Items stretch to match height."
+    },
+    "kanban_pipeline": {
+      "container": "flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-12rem)]",
+      "column": "w-80 flex-shrink-0 bg-zinc-50 rounded-lg p-3 border border-zinc-200 flex flex-col gap-3",
+      "card": "bg-white p-4 rounded-md border border-zinc-200 shadow-sm hover:shadow-md hover:border-zinc-300 transition-all cursor-grab active:cursor-grabbing"
+    }
+  },
+  "components_customization": {
+    "shadcn": {
+      "button": "rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50. Primary: bg-zinc-900 text-zinc-50 hover:bg-zinc-900/90. Secondary: bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-900.",
+      "card": "rounded-md border border-zinc-200 bg-white text-zinc-950 shadow-sm.",
+      "input": "flex h-9 w-full rounded-md border border-zinc-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50.",
+      "tabs": "List: h-9 items-center justify-center rounded-none border-b border-zinc-200 bg-transparent p-0. Trigger: inline-flex items-center justify-center whitespace-nowrap px-4 py-2 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-b-2 data-[state=active]:border-zinc-900 data-[state=active]:text-zinc-950 data-[state=active]:shadow-none."
+    },
+    "icons": {
+      "library": "lucide-react",
+      "style": "stroke-width: 1.5, simple, sharp.",
+      "instructions": "Use Lucide icons for all UI elements. For the company/brand logo, use an icon like <Box /> or <Hexagon /> combined with the brand name in Satoshi."
+    }
+  },
+  "motion_and_interactions": {
+    "hover": "Subtle background color shifts (e.g., bg-transparent to bg-zinc-100) with 150ms ease-in-out.",
+    "active": "Scale down very slightly (scale-95) for buttons. Kanban cards lift slightly (-translate-y-1, shadow-md).",
+    "page_transitions": "None to minimal. Focus on instant, snappy loading for enterprise efficiency."
+  },
+  "media_and_images": {
+    "auth_page_background": [
+      {
+        "url": "https://images.pexels.com/photos/35173078/pexels-photo-35173078.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Modern architectural design with geometric lines. Use as a split-screen background for the Login/Signup page.",
+        "category": "auth_background"
+      }
+    ],
+    "user_avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1762522926157-bcc04bf0b10a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NjgxMjQ0Mnww&ixlib=rb-4.1.0&q=85",
+        "description": "Professional headshot for the main logged-in user or key leads.",
+        "category": "avatar_primary"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1769636929388-99eff95d3bf1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NjgxMjQ0Mnww&ixlib=rb-4.1.0&q=85",
+        "description": "Professional headshot for team members or contacts.",
+        "category": "avatar_secondary"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1576558656222-ba66febe3dec?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NjgxMjQ0Mnww&ixlib=rb-4.1.0&q=85",
+        "description": "Professional headshot for contacts.",
+        "category": "avatar_tertiary"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the 'Clean enterprise' aesthetic (similar to Linear or Attio). Avoid unnecessary gradients, large colored boxes, or playful UI elements.",
+    "Ensure the sidebar is collapsible to 64px, revealing only icons when collapsed. When open, it should be 260px wide.",
+    "Use a 'Control Room Grid' for the dashboard. Gaps should be gap-4 or gap-6. Avoid massive paddings between widgets; keep it dense but readable.",
+    "For the Kanban board, implement a horizontally scrolling container with distinct vertical columns (bg-zinc-50). Cards should be clean white boxes.",
+    "All interactive elements (buttons, links, form inputs) MUST have a `data-testid` attribute (e.g., `data-testid='login-submit-button'`).",
+    "Do NOT use placeholder image URLs like via.placeholder.com. Use the provided avatar and background URLs. For missing company logos, use a Lucide React icon (like <Hexagon /> or <Triangle />) styled sharply.",
+    "Use standard Tailwind CSS classes. Use Shadcn components for complex interactions (Dropdowns, Tabs, Dialogs) but strip away heavily rounded corners to match the rounded-md (6px) rule.",
+    "Import Satoshi font via Fontshare CDN and Inter via Google Fonts in your index.html or global CSS. Apply Satoshi to headings and Inter to body text."
+  ]
+}
