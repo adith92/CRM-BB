@@ -1,0 +1,60 @@
+{
+  "summary": "Backend-only testing of CRM SaaS (Auth, Dashboard, Leads, Opportunities, Contacts, Activities, Search, Multi-tenant). 23/24 pytest cases passed. One real bug found: brute-force lockout fails behind Kubernetes ingress because request.client.host returns the upstream pod IP and rotates across replicas, partitioning the {ip:email} counter so the 5-attempt threshold is never reached from a single external client.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/login",
+        "issue": "Brute-force lockout never triggers from external clients. Identifier uses request.client.host which is the immediate upstream peer (k8s ingress/pod IP). Observed in DB: bad attempts for the SAME email are split across two IPs (10.64.130.9 and 10.64.129.166), each holding count<5, so locked_until is never set and 8 consecutive bad logins all return 401 instead of 429 by the 6th. Fix: derive client IP from X-Forwarded-For (left-most) header, or key the lockout on email only (with optional IP as secondary signal).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/refresh",
+        "issue": "Relies solely on httpOnly refresh_token cookie; through ingress with samesite=none+secure, cookie usually rides through but cannot be set/read consistently in non-browser flows. Consider also accepting refresh_token in JSON body or Authorization header for parity with the access_token (which is returned in body)."
+      },
+      {
+        "endpoint": "PATCH /api/leads/{id}, /api/opportunities/{id}, /api/contacts/{id}, /api/activities/{id}",
+        "issue": "PATCH endpoints require the FULL LeadIn/OpportunityIn/etc payload (Pydantic models with required `name`/`title` fields). True partial updates are not supported; clients must resend all fields. Consider using a partial update model (all fields Optional)."
+      },
+      {
+        "endpoint": "GET /api/dashboard/stats revenue window",
+        "issue": "Revenue months are computed by subtracting `30*i` days from today's first-of-month then taking .replace(day=1). For months adjacent to long months this can collapse two iterations onto the same month or skip a month (e.g., crossing Feb). Use proper month arithmetic (relativedelta or a small helper)."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix brute-force lockout: replace `request.client.host` with the real client IP via X-Forwarded-For (e.g., request.headers.get('x-forwarded-for','').split(',')[0].strip() or request.client.host fallback), OR key the login_attempts by email only. Re-run TestAuth::test_brute_force_lockout to verify 6th attempt returns 429.",
+    "Optional: support partial PATCH semantics on Leads/Opps/Contacts/Activities by introducing *Update models with Optional fields.",
+    "Optional: improve dashboard revenue month bucketing using calendar-correct month subtraction."
+  ],
+  "critical_code_review_comments": [
+    "Brute-force lockout identifier (`{request.client.host}:{email}`) is broken behind k8s ingress with multiple replicas; counter is partitioned per pod IP. Use X-Forwarded-For.",
+    "PATCH endpoints reuse the create-In model (all required fields), so true partial updates are impossible.",
+    "All endpoints correctly project out `_id` (verified) and tenant scope by `company_id` (verified via fresh-tenant isolation test).",
+    "/api/auth/refresh only accepts cookie; consider adding header/body fallback to mirror /api/auth/login which returns access_token in body.",
+    "/api/auth/google/session correctly returns 401 for invalid session_id (verified)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/iteration_1.json",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "success_rate": {"backend": "95.8% (23/24)", "frontend": "not tested"},
+  "test_credentials": "admin@acme.com / admin123 (verified working). manager@acme.com / manager123 and staff@acme.com / staff123 are seeded.",
+  "seed_data_creation": "Seed runs on backend startup (Acme Inc + 3 users + 3 contacts + 4 leads + 7 opportunities + 4 activities). Tests created TEST_ prefixed transient data and cleaned up after themselves; one extra registered tenant (TEST_Iso_*) and one TEST_Co tenant remain in the DB.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Pytest suite at /app/backend/tests/backend_test.py covers full backend. Only TestAuth::test_brute_force_lockout fails and the failure is a genuine backend bug rooted in k8s ingress IP rotation across pods — re-run this single test after the main agent fixes /api/auth/login to use X-Forwarded-For. Note that login_attempts collection persists locks for 15 minutes; if you need to retest immediately, clear `db.login_attempts` first.",
+  "rca of the issue": "Reproduction: send N>=8 POST /api/auth/login with the same wrong (email, password) to https://enterprise-crm-30.preview.emergentagent.com/api/auth/login from one client. Expected: 429 by attempt 6. Observed: all 8 return 401. DB inspection of `login_attempts` shows two identifier rows for the same email — one per pod IP (10.64.130.9 and 10.64.129.166) — each with count<=5 because requests round-robin across pods. RCA: in server.py:231, `ip = request.client.host` returns the immediate upstream peer (the ingress/pod), not the actual client IP. Behind the kube ingress this varies per request because the backend likely runs >=2 replicas. Mitigation: parse X-Forwarded-For (left-most non-private hop) in server.py login() to derive the real client IP, OR drop IP from the identifier entirely and key the lockout on email (plus optional secondary IP signal). After the fix, also clear stale login_attempts to avoid false-positive locks during retest."
+}
