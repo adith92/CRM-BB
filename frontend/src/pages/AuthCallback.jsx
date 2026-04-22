@@ -26,8 +26,8 @@ export default function AuthCallback() {
         const { data } = await api.post("/auth/google/session", { session_id: sessionId });
         if (data.session_token) tokenStore.setSession(data.session_token);
         setUser(data);
-        window.history.replaceState(null, "", "/dashboard");
-        navigate("/dashboard", { replace: true, state: { user: data } });
+        window.history.replaceState(null, "", "/fleet");
+        navigate("/fleet", { replace: true, state: { user: data } });
       } catch (e) {
         setError(formatApiError(e.response?.data?.detail) || "Google sign-in failed.");
         setTimeout(() => navigate("/login", { replace: true }), 1800);

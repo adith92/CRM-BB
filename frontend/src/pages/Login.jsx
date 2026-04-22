@@ -20,7 +20,7 @@ export default function Login() {
     setErr(""); setLoading(true);
     try {
       await login(email, password);
-      navigate("/dashboard");
+      navigate("/fleet");
     } catch (e2) {
       setErr(formatApiError(e2.response?.data?.detail) || "Login failed");
     } finally {
@@ -30,7 +30,7 @@ export default function Login() {
 
   const onGoogle = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + "/dashboard";
+    const redirectUrl = window.location.origin + "/fleet";
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 

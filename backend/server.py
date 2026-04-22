@@ -1083,7 +1083,314 @@ async def calendar_events(
     return items
 
 
+# ------------------------ Fleet Management ------------------------
+class VehicleIn(BaseModel):
+    plate: str
+    model: Optional[str] = None
+    type: Literal["Sedan", "SUV", "Taxi", "MPV", "Hatchback"] = "Sedan"
+    status: Literal["available", "on_trip", "offline", "maintenance"] = "available"
+    driver_id: Optional[str] = None
+    maintenance_note: Optional[str] = None
 
+class DriverIn(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    status: Literal["on_duty", "off_duty", "break"] = "on_duty"
+    rating: float = 4.8
+    license_no: Optional[str] = None
+
+class TripIn(BaseModel):
+    pickup_name: str
+    pickup_lat: float
+    pickup_lng: float
+    dropoff_name: str
+    dropoff_lat: float
+    dropoff_lng: float
+    rider_name: Optional[str] = None
+    rider_phone: Optional[str] = None
+    fare: float = 0
+
+class TripStatusUpdate(BaseModel):
+    status: Literal["pending", "assigned", "on_trip", "completed", "cancelled"]
+
+class VehiclePositionUpdate(BaseModel):
+    lat: float
+    lng: float
+
+@api.get("/fleet/vehicles")
+async def list_vehicles(user: UserOut = Depends(get_current_user)):
+    items = await db.vehicles.find(scope(user), {"_id": 0}).to_list(500)
+    return items
+
+@api.post("/fleet/vehicles")
+async def create_vehicle(body: VehicleIn, user: UserOut = Depends(get_current_user)):
+    import random
+    now = datetime.now(timezone.utc).isoformat()
+    lat = -6.2 + random.uniform(-0.08, 0.08)
+    lng = 106.82 + random.uniform(-0.12, 0.12)
+    doc = {
+        "vehicle_id": f"vh_{uuid.uuid4().hex[:12]}",
+        **body.model_dump(),
+        "lat": lat, "lng": lng,
+        "heading": random.randint(0, 359),
+        "company_id": user.company_id,
+        "created_at": now, "updated_at": now,
+    }
+    await db.vehicles.insert_one(doc.copy())
+    doc.pop("_id", None)
+    return doc
+
+@api.patch("/fleet/vehicles/{vehicle_id}")
+async def update_vehicle(vehicle_id: str, body: VehicleIn, user: UserOut = Depends(get_current_user)):
+    updates = {**body.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()}
+    r = await db.vehicles.update_one(
+        {"vehicle_id": vehicle_id, "company_id": user.company_id}, {"$set": updates}
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Vehicle not found")
+    return await db.vehicles.find_one({"vehicle_id": vehicle_id}, {"_id": 0})
+
+@api.patch("/fleet/vehicles/{vehicle_id}/position")
+async def update_vehicle_position(vehicle_id: str, body: VehiclePositionUpdate, user: UserOut = Depends(get_current_user)):
+    r = await db.vehicles.update_one(
+        {"vehicle_id": vehicle_id, "company_id": user.company_id},
+        {"$set": {"lat": body.lat, "lng": body.lng, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Not found")
+    return {"ok": True}
+
+@api.delete("/fleet/vehicles/{vehicle_id}")
+async def delete_vehicle(vehicle_id: str, user: UserOut = Depends(get_current_user)):
+    await db.vehicles.delete_one({"vehicle_id": vehicle_id, "company_id": user.company_id})
+    return {"ok": True}
+
+@api.get("/fleet/drivers")
+async def list_drivers(user: UserOut = Depends(get_current_user)):
+    items = await db.drivers.find(scope(user), {"_id": 0}).to_list(500)
+    return items
+
+@api.post("/fleet/drivers")
+async def create_driver(body: DriverIn, user: UserOut = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "driver_id": f"dv_{uuid.uuid4().hex[:12]}",
+        **body.model_dump(),
+        "total_trips": 0,
+        "company_id": user.company_id,
+        "created_at": now, "updated_at": now,
+    }
+    await db.drivers.insert_one(doc.copy())
+    doc.pop("_id", None)
+    return doc
+
+@api.patch("/fleet/drivers/{driver_id}")
+async def update_driver(driver_id: str, body: DriverIn, user: UserOut = Depends(get_current_user)):
+    updates = {**body.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()}
+    r = await db.drivers.update_one(
+        {"driver_id": driver_id, "company_id": user.company_id}, {"$set": updates}
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Driver not found")
+    return await db.drivers.find_one({"driver_id": driver_id}, {"_id": 0})
+
+@api.delete("/fleet/drivers/{driver_id}")
+async def delete_driver(driver_id: str, user: UserOut = Depends(get_current_user)):
+    await db.drivers.delete_one({"driver_id": driver_id, "company_id": user.company_id})
+    return {"ok": True}
+
+@api.get("/fleet/trips")
+async def list_trips(user: UserOut = Depends(get_current_user), status: Optional[str] = None, limit: int = 200):
+    query = scope(user)
+    if status:
+        query["status"] = status
+    items = await db.trips.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return items
+
+@api.post("/fleet/trips")
+async def create_trip(body: TripIn, user: UserOut = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "trip_id": f"tr_{uuid.uuid4().hex[:12]}",
+        **body.model_dump(),
+        "status": "pending",
+        "vehicle_id": None, "driver_id": None,
+        "vehicle_plate": None, "driver_name": None,
+        "company_id": user.company_id,
+        "created_at": now, "updated_at": now,
+        "assigned_at": None, "completed_at": None,
+    }
+    await db.trips.insert_one(doc.copy())
+    doc.pop("_id", None)
+    return doc
+
+def _distance_sq(a_lat, a_lng, b_lat, b_lng) -> float:
+    return (a_lat - b_lat) ** 2 + (a_lng - b_lng) ** 2
+
+@api.post("/fleet/trips/{trip_id}/assign")
+async def assign_trip(trip_id: str, user: UserOut = Depends(get_current_user)):
+    trip = await db.trips.find_one({"trip_id": trip_id, "company_id": user.company_id}, {"_id": 0})
+    if not trip:
+        raise HTTPException(404, "Trip not found")
+    if trip["status"] != "pending":
+        raise HTTPException(400, "Trip is not pending")
+
+    available = await db.vehicles.find(
+        {"company_id": user.company_id, "status": "available"}, {"_id": 0}
+    ).to_list(1000)
+    if not available:
+        raise HTTPException(409, "No available vehicle")
+
+    nearest = min(available, key=lambda v: _distance_sq(v.get("lat", 0), v.get("lng", 0), trip["pickup_lat"], trip["pickup_lng"]))
+    driver = None
+    if nearest.get("driver_id"):
+        driver = await db.drivers.find_one({"driver_id": nearest["driver_id"]}, {"_id": 0})
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.trips.update_one({"trip_id": trip_id}, {"$set": {
+        "status": "assigned",
+        "vehicle_id": nearest["vehicle_id"],
+        "vehicle_plate": nearest.get("plate"),
+        "driver_id": nearest.get("driver_id"),
+        "driver_name": driver.get("name") if driver else None,
+        "assigned_at": now, "updated_at": now,
+    }})
+    await db.vehicles.update_one({"vehicle_id": nearest["vehicle_id"]}, {"$set": {"status": "on_trip", "updated_at": now}})
+    return await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
+
+@api.patch("/fleet/trips/{trip_id}/status")
+async def set_trip_status(trip_id: str, body: TripStatusUpdate, user: UserOut = Depends(get_current_user)):
+    trip = await db.trips.find_one({"trip_id": trip_id, "company_id": user.company_id}, {"_id": 0})
+    if not trip:
+        raise HTTPException(404, "Trip not found")
+    now = datetime.now(timezone.utc).isoformat()
+    updates = {"status": body.status, "updated_at": now}
+    if body.status == "completed":
+        updates["completed_at"] = now
+        if trip.get("vehicle_id"):
+            await db.vehicles.update_one({"vehicle_id": trip["vehicle_id"]}, {"$set": {"status": "available", "updated_at": now}})
+        if trip.get("driver_id"):
+            await db.drivers.update_one({"driver_id": trip["driver_id"]}, {"$inc": {"total_trips": 1}})
+    elif body.status == "cancelled":
+        if trip.get("vehicle_id"):
+            await db.vehicles.update_one({"vehicle_id": trip["vehicle_id"]}, {"$set": {"status": "available", "updated_at": now}})
+    await db.trips.update_one({"trip_id": trip_id}, {"$set": updates})
+    return await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
+
+@api.delete("/fleet/trips/{trip_id}")
+async def delete_trip(trip_id: str, user: UserOut = Depends(get_current_user)):
+    await db.trips.delete_one({"trip_id": trip_id, "company_id": user.company_id})
+    return {"ok": True}
+
+JAKARTA_PLACES = [
+    ("Bundaran HI", -6.1935, 106.8231),
+    ("Grand Indonesia", -6.1951, 106.8218),
+    ("Plaza Senayan", -6.2259, 106.7997),
+    ("SCBD", -6.2268, 106.8085),
+    ("Kota Tua", -6.1352, 106.8134),
+    ("Ancol", -6.1223, 106.8401),
+    ("Menteng", -6.1958, 106.8302),
+    ("Kemang", -6.2623, 106.8172),
+    ("PIK", -6.1108, 106.7380),
+    ("Kelapa Gading", -6.1567, 106.9063),
+    ("Cilandak", -6.2944, 106.8020),
+    ("Tebet", -6.2281, 106.8535),
+    ("Sudirman", -6.2088, 106.8224),
+    ("Pasar Baru", -6.1579, 106.8318),
+    ("Blok M", -6.2444, 106.7988),
+    ("Pondok Indah", -6.2661, 106.7842),
+    ("Bekasi Barat", -6.2383, 106.9756),
+    ("Cengkareng", -6.1461, 106.7316),
+    ("Pluit", -6.1214, 106.7897),
+    ("Casablanca", -6.2238, 106.8405),
+]
+
+@api.post("/fleet/simulate/incoming-trip")
+async def simulate_incoming_trip(user: UserOut = Depends(get_current_user)):
+    import random
+    p = random.choice(JAKARTA_PLACES)
+    d = random.choice([x for x in JAKARTA_PLACES if x[0] != p[0]])
+    riders = ["Budi Santoso", "Siti Rahma", "Andi Wijaya", "Putri Ayu", "Rudi Hartono",
+              "Maya Kusuma", "Agus Pramono", "Dewi Sartika", "Fajar Nugroho", "Lina Marlina"]
+    fare = random.randint(35, 180) * 1000
+    trip = TripIn(
+        pickup_name=p[0], pickup_lat=p[1], pickup_lng=p[2],
+        dropoff_name=d[0], dropoff_lat=d[1], dropoff_lng=d[2],
+        rider_name=random.choice(riders), rider_phone=f"+62 812 {random.randint(1000, 9999)} {random.randint(1000, 9999)}",
+        fare=float(fare),
+    )
+    created = await create_trip(trip, user)
+    try:
+        assigned = await assign_trip(created["trip_id"], user)
+        return assigned
+    except HTTPException:
+        return created
+
+@api.get("/fleet/stats")
+async def fleet_stats(user: UserOut = Depends(get_current_user)):
+    q = scope(user)
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+    vehicles_total = await db.vehicles.count_documents(q)
+    vehicles_available = await db.vehicles.count_documents({**q, "status": "available"})
+    vehicles_on_trip = await db.vehicles.count_documents({**q, "status": "on_trip"})
+    vehicles_offline = await db.vehicles.count_documents({**q, "status": "offline"})
+    vehicles_maintenance = await db.vehicles.count_documents({**q, "status": "maintenance"})
+
+    drivers_total = await db.drivers.count_documents(q)
+    drivers_on_duty = await db.drivers.count_documents({**q, "status": "on_duty"})
+
+    trips_today = await db.trips.count_documents({**q, "created_at": {"$gte": today_start}})
+    trips_active = await db.trips.count_documents({**q, "status": {"$in": ["pending", "assigned", "on_trip"]}})
+    trips_completed_today = await db.trips.count_documents({**q, "status": "completed", "completed_at": {"$gte": today_start}})
+
+    revenue_today = 0.0
+    cur = db.trips.find({**q, "status": "completed", "completed_at": {"$gte": today_start}}, {"_id": 0, "fare": 1})
+    async for t in cur:
+        revenue_today += float(t.get("fare", 0))
+
+    trips_per_hour = [{"hour": f"{h:02d}", "trips": 0, "revenue": 0.0} for h in range(24)]
+    cur = db.trips.find({**q, "created_at": {"$gte": today_start}}, {"_id": 0, "created_at": 1, "fare": 1, "status": 1})
+    async for t in cur:
+        try:
+            h = datetime.fromisoformat(t["created_at"]).hour
+            trips_per_hour[h]["trips"] += 1
+            if t.get("status") == "completed":
+                trips_per_hour[h]["revenue"] += float(t.get("fare", 0))
+        except Exception:
+            pass
+
+    revenue_7d = []
+    for i in range(6, -1, -1):
+        day = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day + timedelta(days=1)
+        total = 0.0
+        count = 0
+        cur = db.trips.find({
+            **q, "status": "completed",
+            "completed_at": {"$gte": day.isoformat(), "$lt": day_end.isoformat()}
+        }, {"_id": 0, "fare": 1})
+        async for t in cur:
+            total += float(t.get("fare", 0))
+            count += 1
+        revenue_7d.append({"day": day.strftime("%a"), "revenue": total, "trips": count})
+
+    return {
+        "vehicles": {
+            "total": vehicles_total, "available": vehicles_available,
+            "on_trip": vehicles_on_trip, "offline": vehicles_offline,
+            "maintenance": vehicles_maintenance,
+        },
+        "drivers": {"total": drivers_total, "on_duty": drivers_on_duty},
+        "trips": {"today": trips_today, "active": trips_active, "completed_today": trips_completed_today},
+        "revenue_today": round(revenue_today, 2),
+        "trips_per_hour": trips_per_hour,
+        "revenue_7d": revenue_7d,
+    }
+
+
+# ------------------------ Health ------------------------
 @api.get("/")
 async def root():
     return {"status": "ok", "service": "crm"}
@@ -1198,6 +1505,141 @@ async def seed_demo():
     logger.info("Seeded demo data for company Acme Inc")
 
 
+async def seed_fleet():
+    import random
+    admin = await db.users.find_one({"email": os.environ.get("ADMIN_EMAIL", "admin@acme.com").lower()}, {"_id": 0})
+    if not admin:
+        return
+    company_id = admin["company_id"]
+    if await db.vehicles.count_documents({"company_id": company_id}) >= 50:
+        return
+    now = datetime.now(timezone.utc)
+
+    # Indonesian drivers
+    id_first = ["Budi", "Siti", "Andi", "Dewi", "Rudi", "Maya", "Agus", "Lina", "Fajar", "Putri",
+                "Bambang", "Kartika", "Wahyu", "Indah", "Hendra", "Rini", "Eko", "Sari", "Dian", "Yanto",
+                "Nurul", "Reza", "Wulan", "Dimas", "Rani", "Teguh", "Sinta", "Bayu", "Mega", "Joko"]
+    id_last = ["Santoso", "Wijaya", "Pratama", "Hartono", "Nugroho", "Kusuma", "Permana", "Saputra",
+               "Rahardjo", "Setiawan", "Budiman", "Ramadhan", "Siregar", "Hidayat", "Simanjuntak"]
+    drivers = []
+    for i in range(110):
+        name = f"{random.choice(id_first)} {random.choice(id_last)}"
+        drivers.append({
+            "driver_id": f"dv_{uuid.uuid4().hex[:12]}",
+            "name": name,
+            "phone": f"+62 812 {random.randint(1000, 9999)} {random.randint(1000, 9999)}",
+            "status": random.choices(["on_duty", "off_duty", "break"], weights=[0.78, 0.15, 0.07])[0],
+            "rating": round(random.uniform(4.3, 5.0), 2),
+            "license_no": f"SIM-{random.randint(10000000, 99999999)}",
+            "total_trips": random.randint(120, 3500),
+            "company_id": company_id,
+            "created_at": now.isoformat(), "updated_at": now.isoformat(),
+        })
+    await db.drivers.insert_many([d.copy() for d in drivers])
+
+    # Vehicles distributed across Jakarta
+    types = ["Sedan", "SUV", "Taxi", "MPV", "Hatchback"]
+    models = {
+        "Sedan": ["Toyota Vios", "Honda City", "Hyundai Accent"],
+        "SUV": ["Toyota Fortuner", "Honda CR-V", "Mitsubishi Pajero", "Wuling Almaz"],
+        "Taxi": ["Toyota Avanza", "Toyota Limo", "Nissan Almera"],
+        "MPV": ["Toyota Innova", "Honda Mobilio", "Suzuki Ertiga"],
+        "Hatchback": ["Toyota Yaris", "Honda Brio", "Daihatsu Ayla"],
+    }
+    # Jakarta bounds — roughly
+    lat_min, lat_max = -6.30, -6.10
+    lng_min, lng_max = 106.72, 106.96
+    letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    vehicles = []
+    for i in range(100):
+        t = random.choice(types)
+        plate = f"B {random.randint(1000, 9999)} {random.choice(letters)}{random.choice(letters)}{random.choice(letters)}"
+        driver = drivers[i] if i < len(drivers) else None
+        driver_status = driver["status"] if driver else "off_duty"
+        # 60% available, 25% on_trip, 10% offline, 5% maintenance
+        if driver_status != "on_duty":
+            status = random.choices(["offline", "maintenance"], weights=[0.8, 0.2])[0]
+        else:
+            status = random.choices(["available", "on_trip"], weights=[0.7, 0.3])[0]
+        vehicles.append({
+            "vehicle_id": f"vh_{uuid.uuid4().hex[:12]}",
+            "plate": plate,
+            "model": random.choice(models[t]),
+            "type": t,
+            "status": status,
+            "driver_id": driver["driver_id"] if driver else None,
+            "maintenance_note": "Routine check" if status == "maintenance" else None,
+            "lat": round(random.uniform(lat_min, lat_max), 6),
+            "lng": round(random.uniform(lng_min, lng_max), 6),
+            "heading": random.randint(0, 359),
+            "company_id": company_id,
+            "created_at": now.isoformat(), "updated_at": now.isoformat(),
+        })
+    await db.vehicles.insert_many([v.copy() for v in vehicles])
+
+    # Seed some trips — today, spread across the day
+    trips = []
+    statuses_plan = (["completed"] * 45 + ["on_trip"] * 8 + ["assigned"] * 5 + ["pending"] * 3 + ["cancelled"] * 4)
+    random.shuffle(statuses_plan)
+    for idx, stt in enumerate(statuses_plan):
+        p = random.choice(JAKARTA_PLACES)
+        d_place = random.choice([x for x in JAKARTA_PLACES if x[0] != p[0]])
+        fare = random.randint(35, 180) * 1000
+        hour_offset = random.randint(0, 23)
+        created = now.replace(hour=hour_offset, minute=random.randint(0, 59), second=0, microsecond=0)
+        veh = random.choice(vehicles)
+        drv_id = veh.get("driver_id")
+        drv = next((d for d in drivers if d["driver_id"] == drv_id), None) if drv_id else None
+        completed_at = (created + timedelta(minutes=random.randint(10, 45))).isoformat() if stt == "completed" else None
+        trip = {
+            "trip_id": f"tr_{uuid.uuid4().hex[:12]}",
+            "pickup_name": p[0], "pickup_lat": p[1], "pickup_lng": p[2],
+            "dropoff_name": d_place[0], "dropoff_lat": d_place[1], "dropoff_lng": d_place[2],
+            "rider_name": f"{random.choice(id_first)} {random.choice(id_last)}",
+            "rider_phone": f"+62 812 {random.randint(1000, 9999)} {random.randint(1000, 9999)}",
+            "fare": float(fare),
+            "status": stt,
+            "vehicle_id": veh["vehicle_id"] if stt != "pending" else None,
+            "vehicle_plate": veh["plate"] if stt != "pending" else None,
+            "driver_id": drv["driver_id"] if drv and stt != "pending" else None,
+            "driver_name": drv["name"] if drv and stt != "pending" else None,
+            "company_id": company_id,
+            "created_at": created.isoformat(),
+            "updated_at": created.isoformat(),
+            "assigned_at": created.isoformat() if stt != "pending" else None,
+            "completed_at": completed_at,
+        }
+        trips.append(trip)
+    # Also seed past 6 days of completed trips for revenue trend
+    for day_offset in range(1, 7):
+        day = now - timedelta(days=day_offset)
+        for _ in range(random.randint(18, 60)):
+            p = random.choice(JAKARTA_PLACES)
+            d_place = random.choice([x for x in JAKARTA_PLACES if x[0] != p[0]])
+            fare = random.randint(35, 180) * 1000
+            created = day.replace(hour=random.randint(6, 22), minute=random.randint(0, 59))
+            veh = random.choice(vehicles)
+            drv_id = veh.get("driver_id")
+            drv = next((d for d in drivers if d["driver_id"] == drv_id), None) if drv_id else None
+            trips.append({
+                "trip_id": f"tr_{uuid.uuid4().hex[:12]}",
+                "pickup_name": p[0], "pickup_lat": p[1], "pickup_lng": p[2],
+                "dropoff_name": d_place[0], "dropoff_lat": d_place[1], "dropoff_lng": d_place[2],
+                "rider_name": f"{random.choice(id_first)} {random.choice(id_last)}",
+                "rider_phone": None, "fare": float(fare),
+                "status": "completed",
+                "vehicle_id": veh["vehicle_id"], "vehicle_plate": veh["plate"],
+                "driver_id": drv["driver_id"] if drv else None,
+                "driver_name": drv["name"] if drv else None,
+                "company_id": company_id,
+                "created_at": created.isoformat(), "updated_at": created.isoformat(),
+                "assigned_at": created.isoformat(),
+                "completed_at": (created + timedelta(minutes=random.randint(10, 45))).isoformat(),
+            })
+    await db.trips.insert_many([t.copy() for t in trips])
+    logger.info(f"Seeded fleet: 100 vehicles, {len(drivers)} drivers, {len(trips)} trips")
+
+
 @app.on_event("startup")
 async def on_startup():
     await db.users.create_index("email", unique=True)
@@ -1217,7 +1659,12 @@ async def on_startup():
     await db.quotations.create_index([("company_id", 1), ("created_at", -1)])
     await db.orders.create_index([("company_id", 1), ("created_at", -1)])
     await db.counters.create_index([("company_id", 1), ("key", 1)], unique=True)
+    await db.vehicles.create_index([("company_id", 1), ("status", 1)])
+    await db.drivers.create_index([("company_id", 1), ("status", 1)])
+    await db.trips.create_index([("company_id", 1), ("created_at", -1)])
+    await db.trips.create_index([("company_id", 1), ("status", 1)])
     await seed_demo()
+    await seed_fleet()
 
 
 @app.on_event("shutdown")

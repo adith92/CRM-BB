@@ -21,7 +21,7 @@ export default function Signup() {
     setErr(""); setLoading(true);
     try {
       await register(form);
-      navigate("/dashboard");
+      navigate("/fleet");
     } catch (e2) {
       setErr(formatApiError(e2.response?.data?.detail) || "Signup failed");
     } finally {
@@ -31,7 +31,7 @@ export default function Signup() {
 
   const onGoogle = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + "/dashboard";
+    const redirectUrl = window.location.origin + "/fleet";
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
