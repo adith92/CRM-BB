@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api, formatApiError } from "../lib/api";
 import { Card } from "../components/ui/card";
-import { MoreHorizontal, Trash2, Pencil, GripVertical } from "lucide-react";
+import { MoreHorizontal, Trash2, Pencil, GripVertical, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -27,6 +28,7 @@ export default function Opportunities() {
   const [editing, setEditing] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [overStage, setOverStage] = useState(null);
+  const navigate = useNavigate();
 
   const load = async () => {
     try {
@@ -74,6 +76,16 @@ export default function Opportunities() {
     await api.delete(`/opportunities/${id}`);
     toast.success("Deleted");
     load();
+  };
+
+  const createQuote = async (id) => {
+    try {
+      const { data } = await api.post(`/opportunities/${id}/quote`);
+      toast.success(`Quote ${data.number} created`);
+      navigate("/sales");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Failed");
+    }
   };
 
   return (
@@ -126,8 +138,11 @@ export default function Opportunities() {
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuContent align="end" className="w-44">
                           <DropdownMenuItem onClick={() => setEditing(o)}><Pencil className="w-3.5 h-3.5 mr-2" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => createQuote(o.opp_id)} data-testid={`opp-quote-${o.opp_id}`}>
+                            <FileText className="w-3.5 h-3.5 mr-2" /> Create quote
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => remove(o.opp_id)}>
                             <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
                           </DropdownMenuItem>

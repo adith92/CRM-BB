@@ -13,6 +13,10 @@ import Opportunities from "./pages/Opportunities";
 import Contacts from "./pages/Contacts";
 import Activities from "./pages/Activities";
 import Settings from "./pages/Settings";
+import Forms from "./pages/Forms";
+import PublicForm from "./pages/PublicForm";
+import Sales from "./pages/Sales";
+import CalendarPage from "./pages/Calendar";
 import AppShell from "./components/layout/AppShell";
 
 function ProtectedRoute({ children }) {
@@ -39,12 +43,16 @@ function AppRouter() {
     <Routes>
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
+      <Route path="/f/:formId" element={<PublicForm />} />
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/leads" element={<Leads />} />
         <Route path="/pipeline" element={<Opportunities />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/activities" element={<Activities />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/sales" element={<Sales />} />
+        <Route path="/forms" element={<Forms />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

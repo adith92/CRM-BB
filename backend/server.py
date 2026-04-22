@@ -110,6 +110,54 @@ class ActivityIn(BaseModel):
 class GoogleSessionIn(BaseModel):
     session_id: str
 
+class FormFieldIn(BaseModel):
+    key: str
+    label: str
+    type: Literal["text", "email", "tel", "textarea"] = "text"
+    required: bool = False
+    placeholder: Optional[str] = None
+
+class FormIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+    button_text: str = "Submit"
+    success_message: str = "Thanks! We'll be in touch soon."
+    accent_color: str = "#18181B"
+    fields: List[FormFieldIn] = []
+    active: bool = True
+
+class PublicSubmitIn(BaseModel):
+    data: dict
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    page_url: Optional[str] = None
+
+class QuotationItemIn(BaseModel):
+    name: str
+    description: Optional[str] = None
+    quantity: float = 1
+    unit_price: float = 0
+    tax_pct: float = 0
+
+class QuotationIn(BaseModel):
+    title: str
+    opp_id: Optional[str] = None
+    contact_id: Optional[str] = None
+    contact_name: Optional[str] = None
+    items: List[QuotationItemIn] = []
+    currency: str = "USD"
+    notes: Optional[str] = None
+    valid_until: Optional[str] = None
+    status: Literal["draft", "sent", "accepted", "rejected", "invoiced"] = "draft"
+
+class QuotationStatusUpdate(BaseModel):
+    status: Literal["draft", "sent", "accepted", "rejected", "invoiced"]
+
+class OrderStatusUpdate(BaseModel):
+    status: Literal["pending", "confirmed", "shipped", "delivered", "cancelled"]
+
+
 
 # ------------------------ Helpers ------------------------
 def hash_password(pw: str) -> str:
@@ -629,7 +677,413 @@ async def global_search(q: str = Query(..., min_length=1), user: UserOut = Depen
     return results
 
 
-# ------------------------ Health ------------------------
+# ------------------------ Forms (embeddable lead capture) ------------------------
+DEFAULT_FORM_FIELDS = [
+    {"key": "name", "label": "Full name", "type": "text", "required": True, "placeholder": "Jane Doe"},
+    {"key": "email", "label": "Email", "type": "email", "required": True, "placeholder": "jane@company.com"},
+    {"key": "phone", "label": "Phone", "type": "tel", "required": False, "placeholder": "+1 555 010 0000"},
+    {"key": "company_name", "label": "Company", "type": "text", "required": False, "placeholder": "Acme Inc"},
+    {"key": "message", "label": "What can we help with?", "type": "textarea", "required": False, "placeholder": "Tell us a bit about your project."},
+]
+
+@api.get("/forms")
+async def list_forms(user: UserOut = Depends(get_current_user)):
+    items = await db.forms.find(scope(user), {"_id": 0}).sort("created_at", -1).to_list(200)
+    return items
+
+@api.post("/forms")
+async def create_form(body: FormIn, user: UserOut = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    fields = [f.model_dump() for f in body.fields] if body.fields else DEFAULT_FORM_FIELDS
+    doc = {
+        "form_id": f"fm_{uuid.uuid4().hex[:12]}",
+        "title": body.title,
+        "description": body.description,
+        "button_text": body.button_text,
+        "success_message": body.success_message,
+        "accent_color": body.accent_color,
+        "fields": fields,
+        "active": body.active,
+        "submissions_count": 0,
+        "company_id": user.company_id,
+        "company_name": user.company_name,
+        "created_by": user.user_id,
+        "created_at": now, "updated_at": now,
+    }
+    await db.forms.insert_one(doc.copy())
+    doc.pop("_id", None)
+    return doc
+
+@api.patch("/forms/{form_id}")
+async def update_form(form_id: str, body: FormIn, user: UserOut = Depends(get_current_user)):
+    updates = {
+        "title": body.title, "description": body.description,
+        "button_text": body.button_text, "success_message": body.success_message,
+        "accent_color": body.accent_color,
+        "fields": [f.model_dump() for f in body.fields] if body.fields else DEFAULT_FORM_FIELDS,
+        "active": body.active,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    r = await db.forms.update_one({"form_id": form_id, "company_id": user.company_id}, {"$set": updates})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Form not found")
+    return await db.forms.find_one({"form_id": form_id}, {"_id": 0})
+
+@api.delete("/forms/{form_id}")
+async def delete_form(form_id: str, user: UserOut = Depends(get_current_user)):
+    await db.forms.delete_one({"form_id": form_id, "company_id": user.company_id})
+    return {"ok": True}
+
+@api.get("/forms/{form_id}/submissions")
+async def form_submissions(form_id: str, user: UserOut = Depends(get_current_user)):
+    form = await db.forms.find_one({"form_id": form_id, "company_id": user.company_id}, {"_id": 0})
+    if not form:
+        raise HTTPException(404, "Form not found")
+    items = await db.form_submissions.find(
+        {"form_id": form_id, "company_id": user.company_id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    return items
+
+
+# ------------------------ Public (no auth) ------------------------
+public_api = APIRouter(prefix="/api/public")
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+@public_api.get("/forms/{form_id}")
+async def public_get_form(form_id: str):
+    form = await db.forms.find_one({"form_id": form_id, "active": True}, {"_id": 0})
+    if not form:
+        raise HTTPException(404, "Form not found or disabled")
+    # Expose only fields safe for public
+    return {
+        "form_id": form["form_id"],
+        "title": form["title"],
+        "description": form.get("description"),
+        "button_text": form.get("button_text", "Submit"),
+        "success_message": form.get("success_message", "Thanks!"),
+        "accent_color": form.get("accent_color", "#18181B"),
+        "fields": form.get("fields", []),
+        "company_name": form.get("company_name"),
+    }
+
+@public_api.post("/forms/{form_id}/submit")
+async def public_submit_form(form_id: str, body: PublicSubmitIn, request: Request):
+    form = await db.forms.find_one({"form_id": form_id, "active": True}, {"_id": 0})
+    if not form:
+        raise HTTPException(404, "Form not found or disabled")
+
+    ip = _client_ip(request)
+    now = datetime.now(timezone.utc)
+    # Rate limit: 10 submissions / hour per IP+form
+    window_start = now - timedelta(hours=1)
+    recent = await db.form_submissions.count_documents({
+        "form_id": form_id, "ip": ip,
+        "created_at": {"$gte": window_start.isoformat()},
+    })
+    if recent >= 10:
+        raise HTTPException(429, "Too many submissions. Try again later.")
+
+    data = body.data or {}
+    # Basic honeypot — if an unknown key like "website" is filled, silently accept (anti-bot)
+    honeypot_filled = bool(str(data.get("website", "")).strip())
+
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip()
+    if not name and not email:
+        raise HTTPException(400, "Name or email required")
+
+    submission = {
+        "submission_id": f"sb_{uuid.uuid4().hex[:12]}",
+        "form_id": form_id,
+        "company_id": form["company_id"],
+        "data": data,
+        "utm_source": body.utm_source,
+        "utm_medium": body.utm_medium,
+        "utm_campaign": body.utm_campaign,
+        "page_url": body.page_url,
+        "ip": ip,
+        "user_agent": request.headers.get("user-agent", "")[:300],
+        "spam": honeypot_filled,
+        "created_at": now.isoformat(),
+    }
+    await db.form_submissions.insert_one(submission.copy())
+    submission.pop("_id", None)
+    await db.forms.update_one({"form_id": form_id}, {"$inc": {"submissions_count": 1}})
+
+    if not honeypot_filled:
+        source_label = body.utm_source or form.get("title", "Web form")
+        lead_doc = {
+            "lead_id": f"ld_{uuid.uuid4().hex[:12]}",
+            "name": name or email,
+            "email": email or None,
+            "phone": (data.get("phone") or None),
+            "company_name": (data.get("company_name") or data.get("company") or None),
+            "source": f"Form: {source_label}",
+            "status": "new",
+            "score": 50,
+            "notes": (data.get("message") or None),
+            "tags": ["inbound", "form"] + ([body.utm_source] if body.utm_source else []),
+            "company_id": form["company_id"],
+            "owner_id": form.get("created_by"),
+            "owner_name": None,
+            "utm": {
+                "source": body.utm_source, "medium": body.utm_medium,
+                "campaign": body.utm_campaign, "page_url": body.page_url,
+            },
+            "created_at": now.isoformat(), "updated_at": now.isoformat(),
+        }
+        await db.leads.insert_one(lead_doc.copy())
+        # Log activity for follow-up
+        await db.activities.insert_one({
+            "activity_id": f"ac_{uuid.uuid4().hex[:12]}",
+            "type": "task",
+            "title": f"Follow up with {lead_doc['name']}",
+            "description": f"New inbound lead via '{form.get('title')}'.",
+            "related_to_type": "lead",
+            "related_to_id": lead_doc["lead_id"],
+            "related_to_name": lead_doc["name"],
+            "due_date": (now + timedelta(days=1)).isoformat(),
+            "status": "pending",
+            "company_id": form["company_id"],
+            "owner_id": form.get("created_by"),
+            "owner_name": None,
+            "created_at": now.isoformat(), "updated_at": now.isoformat(),
+        })
+
+    return {"ok": True, "message": form.get("success_message", "Thanks!")}
+
+@public_api.get("/forms/{form_id}/embed.js")
+async def public_embed_script(form_id: str, request: Request):
+    form = await db.forms.find_one({"form_id": form_id, "active": True}, {"_id": 0})
+    if not form:
+        raise HTTPException(404, "Form not found or disabled")
+    base = FRONTEND_URL.rstrip("/")
+    iframe_url = f"{base}/f/{form_id}"
+    js = (
+        "(function(){"
+        "var d=document,s=d.currentScript;"
+        f"var u='{iframe_url}';"
+        "var t=(s&&s.getAttribute('data-target'))||null;"
+        "var f=d.createElement('iframe');"
+        "f.src=u+window.location.search;"
+        "f.style.border='0';f.style.width='100%';f.style.minHeight='560px';"
+        "f.setAttribute('loading','lazy');"
+        "f.setAttribute('title','Contact form');"
+        "var mount=t?d.querySelector(t):null;"
+        "if(mount){mount.appendChild(f);}else if(s&&s.parentNode){s.parentNode.insertBefore(f,s);}else{d.body.appendChild(f);}"
+        "})();"
+    )
+    return Response(content=js, media_type="application/javascript")
+
+
+# ------------------------ Quotations ------------------------
+def _calc_totals(items: List[dict]) -> dict:
+    subtotal = 0.0
+    tax_total = 0.0
+    for it in items:
+        line = float(it.get("quantity", 0)) * float(it.get("unit_price", 0))
+        subtotal += line
+        tax_total += line * (float(it.get("tax_pct", 0)) / 100.0)
+    return {
+        "subtotal": round(subtotal, 2),
+        "tax_total": round(tax_total, 2),
+        "total": round(subtotal + tax_total, 2),
+    }
+
+async def _next_number(company_id: str, prefix: str) -> str:
+    year = datetime.now(timezone.utc).year
+    key = f"{prefix}-{year}"
+    counter = await db.counters.find_one_and_update(
+        {"company_id": company_id, "key": key},
+        {"$inc": {"value": 1}},
+        upsert=True, return_document=True,
+    )
+    # motor's find_one_and_update returns the old doc by default; we requested True which maps to AFTER
+    value = (counter or {}).get("value") or 1
+    return f"{prefix}-{year}-{value:04d}"
+
+@api.get("/quotations")
+async def list_quotations(user: UserOut = Depends(get_current_user)):
+    items = await db.quotations.find(scope(user), {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+@api.post("/quotations")
+async def create_quotation(body: QuotationIn, user: UserOut = Depends(get_current_user)):
+    items = [i.model_dump() for i in body.items]
+    totals = _calc_totals(items)
+    number = await _next_number(user.company_id, "Q")
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "quotation_id": f"qt_{uuid.uuid4().hex[:12]}",
+        "number": number,
+        "title": body.title,
+        "opp_id": body.opp_id,
+        "contact_id": body.contact_id,
+        "contact_name": body.contact_name,
+        "items": items,
+        "currency": body.currency,
+        "notes": body.notes,
+        "valid_until": body.valid_until,
+        "status": body.status,
+        **totals,
+        "company_id": user.company_id,
+        "owner_id": user.user_id,
+        "owner_name": user.name,
+        "created_at": now, "updated_at": now,
+    }
+    await db.quotations.insert_one(doc.copy())
+    doc.pop("_id", None)
+    return doc
+
+@api.patch("/quotations/{quotation_id}")
+async def update_quotation(quotation_id: str, body: QuotationIn, user: UserOut = Depends(get_current_user)):
+    items = [i.model_dump() for i in body.items]
+    totals = _calc_totals(items)
+    updates = {
+        "title": body.title, "opp_id": body.opp_id,
+        "contact_id": body.contact_id, "contact_name": body.contact_name,
+        "items": items, "currency": body.currency,
+        "notes": body.notes, "valid_until": body.valid_until,
+        "status": body.status, **totals,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    r = await db.quotations.update_one(
+        {"quotation_id": quotation_id, "company_id": user.company_id}, {"$set": updates}
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Not found")
+    return await db.quotations.find_one({"quotation_id": quotation_id}, {"_id": 0})
+
+@api.patch("/quotations/{quotation_id}/status")
+async def set_quotation_status(quotation_id: str, body: QuotationStatusUpdate, user: UserOut = Depends(get_current_user)):
+    r = await db.quotations.update_one(
+        {"quotation_id": quotation_id, "company_id": user.company_id},
+        {"$set": {"status": body.status, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Not found")
+    return await db.quotations.find_one({"quotation_id": quotation_id}, {"_id": 0})
+
+@api.delete("/quotations/{quotation_id}")
+async def delete_quotation(quotation_id: str, user: UserOut = Depends(get_current_user)):
+    await db.quotations.delete_one({"quotation_id": quotation_id, "company_id": user.company_id})
+    return {"ok": True}
+
+@api.post("/opportunities/{opp_id}/quote")
+async def create_quote_from_opp(opp_id: str, user: UserOut = Depends(get_current_user)):
+    opp = await db.opportunities.find_one(
+        {"opp_id": opp_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not opp:
+        raise HTTPException(404, "Opportunity not found")
+    items = [{
+        "name": opp.get("title") or "Service",
+        "description": opp.get("notes") or "",
+        "quantity": 1, "unit_price": float(opp.get("amount", 0) or 0), "tax_pct": 0,
+    }]
+    totals = _calc_totals(items)
+    number = await _next_number(user.company_id, "Q")
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "quotation_id": f"qt_{uuid.uuid4().hex[:12]}",
+        "number": number,
+        "title": opp.get("title"),
+        "opp_id": opp_id,
+        "contact_id": opp.get("contact_id"),
+        "contact_name": opp.get("contact_name"),
+        "items": items,
+        "currency": opp.get("currency", "USD"),
+        "notes": None,
+        "valid_until": (datetime.now(timezone.utc) + timedelta(days=30)).date().isoformat(),
+        "status": "draft",
+        **totals,
+        "company_id": user.company_id,
+        "owner_id": user.user_id, "owner_name": user.name,
+        "created_at": now, "updated_at": now,
+    }
+    await db.quotations.insert_one(doc.copy())
+    doc.pop("_id", None)
+    return doc
+
+
+# ------------------------ Orders ------------------------
+@api.get("/orders")
+async def list_orders(user: UserOut = Depends(get_current_user)):
+    items = await db.orders.find(scope(user), {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+@api.patch("/orders/{order_id}/status")
+async def set_order_status(order_id: str, body: OrderStatusUpdate, user: UserOut = Depends(get_current_user)):
+    r = await db.orders.update_one(
+        {"order_id": order_id, "company_id": user.company_id},
+        {"$set": {"status": body.status, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Not found")
+    return await db.orders.find_one({"order_id": order_id}, {"_id": 0})
+
+@api.delete("/orders/{order_id}")
+async def delete_order(order_id: str, user: UserOut = Depends(get_current_user)):
+    await db.orders.delete_one({"order_id": order_id, "company_id": user.company_id})
+    return {"ok": True}
+
+@api.post("/quotations/{quotation_id}/convert-to-order")
+async def convert_to_order(quotation_id: str, user: UserOut = Depends(get_current_user)):
+    quote = await db.quotations.find_one(
+        {"quotation_id": quotation_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not quote:
+        raise HTTPException(404, "Quotation not found")
+    number = await _next_number(user.company_id, "O")
+    now = datetime.now(timezone.utc).isoformat()
+    order = {
+        "order_id": f"or_{uuid.uuid4().hex[:12]}",
+        "number": number,
+        "quotation_id": quotation_id,
+        "quotation_number": quote.get("number"),
+        "title": quote.get("title"),
+        "contact_id": quote.get("contact_id"),
+        "contact_name": quote.get("contact_name"),
+        "items": quote.get("items", []),
+        "currency": quote.get("currency", "USD"),
+        "subtotal": quote.get("subtotal", 0),
+        "tax_total": quote.get("tax_total", 0),
+        "total": quote.get("total", 0),
+        "status": "pending",
+        "company_id": user.company_id,
+        "owner_id": user.user_id, "owner_name": user.name,
+        "created_at": now, "updated_at": now,
+    }
+    await db.orders.insert_one(order.copy())
+    await db.quotations.update_one(
+        {"quotation_id": quotation_id},
+        {"$set": {"status": "invoiced", "updated_at": now, "order_id": order["order_id"]}},
+    )
+    order.pop("_id", None)
+    return order
+
+
+# ------------------------ Calendar ------------------------
+@api.get("/calendar/events")
+async def calendar_events(
+    start: Optional[str] = None, end: Optional[str] = None,
+    user: UserOut = Depends(get_current_user),
+):
+    query = {**scope(user), "due_date": {"$ne": None}}
+    if start:
+        query["due_date"] = {**query.get("due_date", {}), "$gte": start}
+    if end:
+        query["due_date"] = {**query.get("due_date", {}), "$lte": end}
+    items = await db.activities.find(query, {"_id": 0}).sort("due_date", 1).to_list(1000)
+    return items
+
+
+
 @api.get("/")
 async def root():
     return {"status": "ok", "service": "crm"}
@@ -753,8 +1207,16 @@ async def on_startup():
     await db.opportunities.create_index([("company_id", 1), ("stage", 1)])
     await db.contacts.create_index([("company_id", 1), ("created_at", -1)])
     await db.activities.create_index([("company_id", 1), ("created_at", -1)])
+    await db.activities.create_index([("company_id", 1), ("due_date", 1)])
     await db.user_sessions.create_index("session_token", unique=True)
     await db.login_attempts.create_index("identifier")
+    await db.forms.create_index([("company_id", 1), ("created_at", -1)])
+    await db.forms.create_index("form_id", unique=True)
+    await db.form_submissions.create_index([("form_id", 1), ("created_at", -1)])
+    await db.form_submissions.create_index([("ip", 1), ("created_at", -1)])
+    await db.quotations.create_index([("company_id", 1), ("created_at", -1)])
+    await db.orders.create_index([("company_id", 1), ("created_at", -1)])
+    await db.counters.create_index([("company_id", 1), ("key", 1)], unique=True)
     await seed_demo()
 
 
@@ -764,6 +1226,7 @@ async def on_shutdown():
 
 
 app.include_router(api)
+app.include_router(public_api)
 
 # CORS: must be exact origin + credentials (no wildcard with credentials)
 app.add_middleware(

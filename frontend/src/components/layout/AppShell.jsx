@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Briefcase, Building2, CheckSquare, Settings as SettingsIcon,
-  Search, Bell, Plus, LogOut, PanelLeftClose, PanelLeftOpen, Hexagon, ChevronDown
+  Search, Bell, Plus, LogOut, PanelLeftClose, PanelLeftOpen, Hexagon, ChevronDown,
+  CalendarDays, FileText, Inbox
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -19,8 +20,19 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
   { to: "/leads", label: "Leads", icon: Users, testid: "nav-leads" },
   { to: "/pipeline", label: "Pipeline", icon: Briefcase, testid: "nav-pipeline" },
+  { to: "/sales", label: "Sales", icon: FileText, testid: "nav-sales" },
   { to: "/contacts", label: "Contacts", icon: Building2, testid: "nav-contacts" },
   { to: "/activities", label: "Activities", icon: CheckSquare, testid: "nav-activities" },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays, testid: "nav-calendar" },
+  { to: "/forms", label: "Forms", icon: Inbox, testid: "nav-forms" },
+];
+
+const MOBILE_NAV = [
+  { to: "/dashboard", label: "Home", icon: LayoutDashboard, testid: "mobile-nav-dashboard" },
+  { to: "/leads", label: "Leads", icon: Users, testid: "mobile-nav-leads" },
+  { to: "/pipeline", label: "Pipeline", icon: Briefcase, testid: "mobile-nav-pipeline" },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays, testid: "mobile-nav-calendar" },
+  { to: "/activities", label: "Tasks", icon: CheckSquare, testid: "mobile-nav-activities" },
 ];
 
 function Sidebar({ collapsed, onToggle }) {
@@ -89,7 +101,7 @@ function MobileBottomNav() {
       className="md:hidden fixed bottom-0 inset-x-0 z-30 h-16 bg-white border-t border-zinc-200 flex"
       data-testid="mobile-bottom-nav"
     >
-      {NAV.map((item) => (
+      {MOBILE_NAV.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
@@ -98,7 +110,7 @@ function MobileBottomNav() {
               isActive ? "text-zinc-900" : "text-zinc-500"
             }`
           }
-          data-testid={`mobile-${item.testid}`}
+          data-testid={item.testid}
         >
           <item.icon className="w-5 h-5" strokeWidth={1.6} />
           <span>{item.label}</span>
