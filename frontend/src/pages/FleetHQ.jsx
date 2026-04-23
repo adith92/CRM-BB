@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { api, formatApiError } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -38,14 +38,21 @@ export default function FleetHQ() {
   const [stats, setStats] = useState(null);
   const [simLoading, setSimLoading] = useState(false);
 
-  const load = async () => {
-    try { const { data } = await api.get("/fleet/stats"); setStats(data); } catch {}
-  };
+  const load = useCallback(async () => {
+    try { 
+      const { data } = await api.get("/fleet/stats"); 
+      setStats(data); 
+    } catch (error) {
+      console.error("Failed to load fleet stats:", error);
+      // Silent fail for background refresh - avoid toast spam
+    }
+  }, []);
+  
   useEffect(() => {
     load();
     const i = setInterval(load, 8000);
     return () => clearInterval(i);
-  }, []);
+  }, [load]);
 
   const simulate = async () => {
     setSimLoading(true);

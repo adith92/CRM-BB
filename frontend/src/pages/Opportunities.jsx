@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { api, formatApiError } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { MoreHorizontal, Trash2, Pencil, GripVertical, FileText } from "lucide-react";
@@ -30,19 +30,23 @@ export default function Opportunities() {
   const [overStage, setOverStage] = useState(null);
   const navigate = useNavigate();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const { data } = await api.get("/opportunities");
       setItems(data);
-    } catch {}
-  };
+    } catch (error) {
+      console.error("Failed to load opportunities:", error);
+      // Silent fail for background refresh
+    }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
+  
   useEffect(() => {
     const h = () => load();
     window.addEventListener("crm:refresh", h);
     return () => window.removeEventListener("crm:refresh", h);
-  }, []);
+  }, [load]);
 
   const byStage = useMemo(() => {
     const map = Object.fromEntries(STAGES.map((s) => [s.value, []]));

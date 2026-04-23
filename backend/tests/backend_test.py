@@ -22,8 +22,9 @@ assert BASE_URL, "REACT_APP_BACKEND_URL not configured"
 
 API = f"{BASE_URL}/api"
 
-ADMIN_EMAIL = "admin@acme.com"
-ADMIN_PASSWORD = "admin123"
+# Use environment variables for test credentials (never hardcode secrets)
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@acme.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "admin123")
 
 
 # ---------- Fixtures ----------

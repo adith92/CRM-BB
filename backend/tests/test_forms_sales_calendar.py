@@ -33,8 +33,9 @@ for line in Path("/app/backend/.env").read_text().splitlines():
 API = f"{BASE_URL}/api"
 PUBLIC = f"{BASE_URL}/api/public"
 
-ADMIN_EMAIL = "admin@acme.com"
-ADMIN_PASSWORD = "admin123"
+# Use environment variables for test credentials (never hardcode secrets)
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@acme.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "admin123")
 
 
 # --------------- Fixtures ---------------

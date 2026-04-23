@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { api, formatApiError } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -36,11 +36,12 @@ export default function Vehicles() {
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [v, d] = await Promise.all([api.get("/fleet/vehicles"), api.get("/fleet/drivers")]);
     setItems(v.data); setDrivers(d.data);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  
+  useEffect(() => { load(); }, [load]);
 
   const driverMap = useMemo(() => Object.fromEntries(drivers.map((d) => [d.driver_id, d])), [drivers]);
 

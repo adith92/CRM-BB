@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { api, formatApiError } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -27,26 +27,26 @@ export default function Leads() {
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const params = {};
       if (q) params.q = q;
       if (status !== "all") params.status = status;
       const { data } = await api.get("/leads", { params });
       setItems(data);
-    } catch {}
-  };
+    } catch (error) {
+      console.error("Failed to load leads:", error);
+      // Silent fail - avoid toast spam during filters
+    }
+  }, [q, status]);
 
-  useEffect(() => { load(); }, [status]);
-  useEffect(() => {
-    const t = setTimeout(load, 250);
-    return () => clearTimeout(t);
-  }, [q]);
+  useEffect(() => { load(); }, [load]);
+  
   useEffect(() => {
     const h = () => load();
     window.addEventListener("crm:refresh", h);
     return () => window.removeEventListener("crm:refresh", h);
-  }, []);
+  }, [load]);
 
   const remove = async (id) => {
     if (!window.confirm("Delete this lead?")) return;

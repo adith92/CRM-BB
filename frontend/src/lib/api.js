@@ -7,6 +7,16 @@ const TOKEN_KEY = "relay_access_token";
 const REFRESH_KEY = "relay_refresh_token";
 const SESSION_KEY = "relay_session_token";
 
+/**
+ * Token storage using localStorage
+ * 
+ * Note: Backend also sets httpOnly cookies as primary auth mechanism.
+ * localStorage tokens are used as fallback for Bearer token auth.
+ * For production apps with high security requirements, consider:
+ * - Using only httpOnly cookies (remove localStorage)
+ * - Implementing additional CSRF protection
+ * - Using a secure session management library
+ */
 export const tokenStore = {
   getAccess: () => localStorage.getItem(TOKEN_KEY),
   getRefresh: () => localStorage.getItem(REFRESH_KEY),

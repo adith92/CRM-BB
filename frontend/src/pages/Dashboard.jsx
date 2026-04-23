@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Users, Briefcase, CheckSquare, TrendingUp, Target, DollarSign } from "lucide-react";
@@ -36,19 +36,22 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const { data } = await api.get("/dashboard/stats");
       setStats(data);
-    } catch {}
-  };
+    } catch (error) {
+      console.error("Failed to load dashboard stats:", error);
+      // Silent fail for background refresh
+    }
+  }, []);
 
   useEffect(() => {
     load();
     const h = () => load();
     window.addEventListener("crm:refresh", h);
     return () => window.removeEventListener("crm:refresh", h);
-  }, []);
+  }, [load]);
 
   if (!stats) return <div className="p-6 text-sm text-zinc-500">Loading dashboard…</div>;
 
@@ -92,8 +95,8 @@ export default function Dashboard() {
                 formatter={(v) => fmtMoney(v)}
               />
               <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                {stats.pipeline.map((p, i) => (
-                  <Cell key={i} fill={p.stage === "won" ? "#16a34a" : p.stage === "lost" ? "#dc2626" : "#18181b"} />
+                {stats.pipeline.map((p) => (
+                  <Cell key={p.stage} fill={p.stage === "won" ? "#16a34a" : p.stage === "lost" ? "#dc2626" : "#18181b"} />
                 ))}
               </Bar>
             </BarChart>

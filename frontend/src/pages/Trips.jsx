@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { api, formatApiError } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -24,16 +24,18 @@ export default function Trips() {
   const [tab, setTab] = useState("all");
   const [q, setQ] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data } = await api.get("/fleet/trips", { params: { limit: 200 } });
     setItems(data);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  
+  useEffect(() => { load(); }, [load]);
+  
   useEffect(() => {
     const h = () => load();
     window.addEventListener("crm:refresh", h);
     return () => window.removeEventListener("crm:refresh", h);
-  }, []);
+  }, [load]);
 
   const simulate = async () => {
     try {

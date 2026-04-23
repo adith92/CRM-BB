@@ -48,7 +48,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch {}
+    try { 
+      await api.post("/auth/logout"); 
+    } catch (error) {
+      // Logout API call failed, but we still clear local tokens
+      console.error("Logout API failed:", error);
+    }
     tokenStore.clearAll();
     setUser(null);
   };

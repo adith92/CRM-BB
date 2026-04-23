@@ -17,8 +17,9 @@ if not BASE_URL:
 assert BASE_URL
 API = f"{BASE_URL}/api"
 
-ADMIN_EMAIL = "admin@acme.com"
-ADMIN_PASSWORD = "admin123"
+# Use environment variables for test credentials (never hardcode secrets)
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@acme.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "admin123")
 
 JAK_LAT_MIN, JAK_LAT_MAX = -6.32, -6.08
 JAK_LNG_MIN, JAK_LNG_MAX = 106.70, 106.98

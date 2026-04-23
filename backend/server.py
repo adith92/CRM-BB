@@ -6,6 +6,7 @@ load_dotenv(ROOT_DIR / ".env")
 import os
 import uuid
 import secrets
+import random  # Used for non-security operations (simulation, demo data)
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Literal
@@ -518,7 +519,8 @@ async def convert_lead(lead_id: str, user: UserOut = Depends(get_current_user)):
     }
     await db.opportunities.insert_one(opp.copy())
     await db.leads.update_one({"lead_id": lead_id}, {"$set": {"status": "qualified", "updated_at": now}})
-    contact.pop("_id", None); opp.pop("_id", None)
+    contact.pop("_id", None)
+    opp.pop("_id", None)
     return {"contact": contact, "opportunity": opp}
 
 
@@ -1124,8 +1126,8 @@ async def list_vehicles(user: UserOut = Depends(get_current_user)):
 
 @api.post("/fleet/vehicles")
 async def create_vehicle(body: VehicleIn, user: UserOut = Depends(get_current_user)):
-    import random
     now = datetime.now(timezone.utc).isoformat()
+    # Use random for non-security simulation data (vehicle positions)
     lat = -6.2 + random.uniform(-0.08, 0.08)
     lng = 106.82 + random.uniform(-0.12, 0.12)
     doc = {
@@ -1307,7 +1309,7 @@ JAKARTA_PLACES = [
 
 @api.post("/fleet/simulate/incoming-trip")
 async def simulate_incoming_trip(user: UserOut = Depends(get_current_user)):
-    import random
+    # Simulation data - random is fine for non-security demo purposes
     p = random.choice(JAKARTA_PLACES)
     d = random.choice([x for x in JAKARTA_PLACES if x[0] != p[0]])
     riders = ["Budi Santoso", "Siti Rahma", "Andi Wijaya", "Putri Ayu", "Rudi Hartono",
@@ -1506,7 +1508,7 @@ async def seed_demo():
 
 
 async def seed_fleet():
-    import random
+    # Seed demo data - random is acceptable for non-security demo generation
     admin = await db.users.find_one({"email": os.environ.get("ADMIN_EMAIL", "admin@acme.com").lower()}, {"_id": 0})
     if not admin:
         return
