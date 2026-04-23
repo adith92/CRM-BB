@@ -1,0 +1,170 @@
+# 🚀 PROJECT CONTEXT — CRM + FLEET TAXI SYSTEM
+
+## 📌 PROJECT OVERVIEW
+
+This is a fullstack SaaS project combining:
+
+* CRM system (Leads, Contacts, Opportunities)
+* Fleet / Taxi management system
+* Authentication system (JWT)
+* AI-ready architecture (future Gemini integration)
+
+---
+
+## 📁 DIRECTORY STRUCTURE
+
+Root:
+E:\Vibes CODING\WEB BB CRM\CRM-BB
+
+### Backend:
+
+CRM-BB/backend
+
+* server.py (FastAPI main app)
+* requirements.txt
+* .env
+
+### Frontend:
+
+CRM-BB/frontend
+
+* React + CRACO
+* src/
+* package.json
+
+---
+
+## ⚙️ BACKEND CONFIG (.env)
+
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=crm_db
+
+JWT_SECRET=supersecretkey123
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+---
+
+## 🚀 BACKEND STATUS
+
+✅ Running via:
+uvicorn server:app --reload
+
+✅ Swagger:
+http://127.0.0.1:8000/docs
+
+✅ Login API working:
+POST /api/auth/login
+
+Test credentials:
+email: [admin@acme.com](mailto:admin@acme.com)
+password: admin123
+
+Returns:
+
+* access_token
+* refresh_token
+* user info
+
+---
+
+## 🧱 FEATURES IMPLEMENTED
+
+### AUTH
+
+* Register
+* Login
+* JWT token
+* Google session
+
+### CRM
+
+* Leads
+* Contacts
+* Opportunities
+* Activities
+* Quotations → Orders
+
+### FLEET (Taxi System)
+
+* Vehicles
+* Drivers
+* Trips
+* Assign driver
+* Trip status
+* Simulation
+
+---
+
+## ⚛️ FRONTEND SETUP
+
+Tech:
+
+* React (CRA)
+* CRACO
+* Tailwind
+
+Run:
+npm install --legacy-peer-deps
+npm start
+
+Access:
+http://localhost:3000
+
+---
+
+## ⚠️ CURRENT ISSUE
+
+Login in frontend fails with:
+"Something went wrong"
+
+---
+
+## 🧠 ROOT CAUSE ANALYSIS
+
+Backend login works correctly (200 OK)
+
+Likely frontend issues:
+
+1. API base URL incorrect
+   Should be:
+   http://127.0.0.1:8000
+
+2. Response parsing mismatch
+   Backend returns:
+   {
+   access_token,
+   refresh_token,
+   user_id,
+   ...
+   }
+
+3. Token not stored properly
+
+---
+
+## 🎯 TASK FOR AI
+
+Fix frontend login integration:
+
+* Ensure correct API base URL
+* Parse response correctly
+* Store access_token
+* Redirect after login
+
+---
+
+## 🚀 FUTURE PLAN
+
+* Gemini AI integration
+* Auto dispatch taxi
+* Smart CRM insights
+* SaaS monetization
+
+---
+
+## 🧠 IMPORTANT NOTE
+
+Backend is fully working
+Frontend UI is running
+Only integration layer needs fixing
