@@ -1,3 +1,71 @@
+# ⚠️ AI INSTRUCTION CONTEXT
+
+This file is a **working prompt context for AI-assisted development**.
+
+It is intended to be used with:
+
+* Google Gemini
+* ChatGPT
+* Cursor AI
+* Other coding assistants
+
+---
+
+## 🎯 PURPOSE
+
+The goal of this document is to:
+
+* Provide full project context
+* Avoid repeated explanations
+* Enable AI to continue development immediately
+* Focus on solving real issues in the system
+
+---
+
+## 🧠 HOW TO USE (FOR AI)
+
+You should:
+
+* Read this entire file before responding
+* Assume backend is already working
+* Focus on debugging and improving the frontend integration
+* Provide step-by-step actionable solutions
+* Avoid generic explanations
+
+---
+
+## ⚠️ CURRENT PRIORITY
+
+Fix frontend login integration so that:
+
+* User can log in successfully
+* Token is stored correctly
+* App redirects to dashboard
+* Frontend connects properly to backend API
+
+---
+
+## 🚫 DO NOT
+
+* Do not re-explain basic setup (Python, Node, etc.)
+* Do not suggest reinstalling everything
+* Do not give generic answers
+* Do not ignore the existing architecture
+
+---
+
+## ✅ EXPECTED OUTPUT FROM AI
+
+* Clear diagnosis
+* Exact file to edit
+* Exact code to change
+* Minimal but precise explanation
+* Step-by-step fix
+
+---
+
+# 🚀 CONTINUE BELOW FOR FULL PROJECT CONTEXT
+-----------------------------------------------
 # 🚀 PROJECT CONTEXT — CRM + FLEET TAXI SYSTEM
 
 ## 📌 PROJECT OVERVIEW
