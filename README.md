@@ -1,189 +1,115 @@
-# 🚀 Fleet Management CRM System (Enterprise Demo)
+# 🚀 Fleet Management System
 
-A modern, enterprise-grade CRM + Fleet Management System designed for taxi / transportation companies.
-
-This system simulates a real-world operation similar to ride-hailing platforms (Uber / Gojek) and professional fleet operators.
+A modern full-stack fleet management application designed to handle vehicle tracking, sales workflows, and operational insights with a scalable and secure architecture.
 
 ---
 
-# 🎯 Project Goal
+## 📌 Overview
 
-To build a scalable, modular SaaS system that combines:
+Fleet Management System is a web-based platform that helps businesses manage:
 
-* CRM (Customer Relationship Management)
-* Fleet Management (Vehicles & Drivers)
-* Real-time Tracking System
-* Booking & Dispatch System
-* Business Analytics Dashboard
+* Vehicles & fleet operations
+* Trips and activity tracking
+* Sales pipelines and opportunities
+* Leads and customer data
 
----
-
-# 🧩 Core Features
-
-## 🧠 CRM System
-
-* Leads & Opportunities (Pipeline Kanban)
-* Contacts Management
-* Activities (Tasks, Calls, Meetings)
-* Dashboard with KPI & analytics
+Built with a focus on **performance, maintainability, and security**.
 
 ---
 
-## 🚗 Fleet Management
+## 🧠 Key Features
 
-* Vehicle database (CRUD)
-* Vehicle status:
+### 🚗 Fleet Management
 
-  * Active
-  * On Trip
-  * Maintenance
-* Driver assignment
+* Vehicle tracking & management
+* Trip monitoring
+* Fleet statistics dashboard
 
----
+### 📊 Sales & CRM
 
-## 👨‍✈️ Driver Management
+* Leads and opportunities tracking
+* Sales pipeline visualization
+* Activity management
 
-* Driver profiles
-* Status tracking (online/offline/on-trip)
-* Performance metrics:
+### ⚙️ System Features
 
-  * total trips
-  * rating
-
----
-
-## 🗺️ Real-Time Map Tracking
-
-* Live map (Jakarta region)
-* 100 simulated vehicles
-* Vehicle movement simulation
-* Clickable vehicle details
+* Real-time data updates
+* Modular architecture
+* Clean API integration
 
 ---
 
-## 📦 Booking / Dispatch System
-
-* Simulated trip requests
-* Auto-assign nearest vehicle
-* Trip status flow:
-
-  * Pending
-  * Assigned
-  * On Trip
-  * Completed
-
----
-
-## 💰 Sales Module (Basic)
-
-* Quotation system
-* Order conversion
-* Auto numbering system
-
----
-
-## 📅 Calendar System
-
-* Activity scheduling
-* Monthly calendar view
-* Linked with CRM activities
-
----
-
-## 🌐 Multi Language
-
-* Bahasa Indonesia 🇮🇩
-* English 🇺🇸
-
----
-
-## 📊 Executive Dashboard
-
-* Active vehicles
-* Active drivers
-* Trips today
-* Revenue today
-* Charts (trends & performance)
-
----
-
-## 📍 Lead Capture System
-
-* Public form (embeddable)
-* UTM tracking
-* Auto create leads
-* Auto follow-up activity
-
----
-
-# 🎨 UI / UX
-
-* Modern enterprise design (inspired by Stripe / Linear)
-* Dark mode + Light mode
-* Responsive (Desktop + Mobile)
-* Clean, minimal, professional look
-
----
-
-# ⚙️ Tech Stack
+## 🏗️ Tech Stack
 
 ### Frontend
 
-* React / Next.js (auto-generated)
-* TailwindCSS
-* Chart libraries
+* React.js
+* Axios
+* Context API
 
 ### Backend
 
-* Python (FastAPI)
+* Python (FastAPI / Flask-style architecture)
 * REST API
-* Modular architecture
 
-### Map
+### Database
 
-* Google Maps (optional) OR
-* OpenStreetMap + Leaflet
+* MongoDB
 
 ---
 
-# 🧪 Testing
+## 🔒 Security Highlights
 
-* Backend tests: ✅ Passed
-* Frontend tests: ✅ Passed
-* Critical flows fully tested
+* Environment-based configuration (no hardcoded secrets)
+* Secure authentication using httpOnly cookies
+* Protection against XSS vulnerabilities
+* Safe token generation using `secrets` module
 
 ---
 
-# 📁 Project Structure
+## 📂 Project Structure
 
 ```
-backend/        → API & business logic
-frontend/       → UI application
-tests/          → test cases
-memory/         → AI-generated memory/state
-.emergent/      → system configs
+/frontend        → React application
+/backend         → API server
+/tests           → Unit & integration tests
+/docs            → Documentation files
 ```
 
 ---
 
-# 🚀 How to Run
+## ⚙️ Installation & Setup
 
-## 1. Clone repo
+### 1. Clone Repository
 
 ```bash
-git clone <your-repo-url>
-cd project
+git clone https://github.com/your-username/your-repo.git
+cd your-repo
 ```
 
-## 2. Run Backend
+### 2. Setup Backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
 ```
 
-## 3. Run Frontend
+Create `.env` file:
+
+```
+API_KEY=your_key
+DB_URI=your_database_url
+```
+
+Run backend:
+
+```bash
+python server.py
+```
+
+---
+
+### 3. Setup Frontend
 
 ```bash
 cd frontend
@@ -193,60 +119,74 @@ npm run dev
 
 ---
 
-# 🔁 Development Status
+## 🧪 Testing
 
-## ✅ Completed
+Run backend tests:
 
-* CRM core
-* Fleet system
-* Real-time map (100 vehicles)
-* Dashboard
-* Booking simulation
-* Sales basic
-* Calendar
-* Multi-language
+```bash
+pytest
+```
 
----
+Linting:
 
-## 🚧 Next Roadmap
-
-* Email / webhook notification
-* Form analytics (conversion, UTM insights)
-* Auto-assign driver rules
-* Advanced reporting
-* Mobile driver app (future)
+```bash
+ruff check .
+eslint .
+```
 
 ---
 
-# 💡 Vision
+## 📌 Changelog
 
-This project aims to evolve into a full **Fleet Operating System**:
-
-* Real-time operations
-* Business intelligence
-* Scalable SaaS for transport companies
+See full updates here:
+👉 `/app/CODE_REVIEW_FIXES.md`
 
 ---
 
-# ⚠️ Notes
+## 📊 Code Quality Status
 
-This is a demo / prototype system for presentation and development purposes.
-
----
-
-# 👨‍💻 Author
-
-Developed as part of an advanced AI-assisted system building project.
+* ✅ Security issues resolved
+* ✅ Linting passed (Python & JavaScript)
+* ✅ React best practices implemented
+* ✅ Improved error handling & debugging
 
 ---
 
-# 🔥 Future Potential
+## 🚀 Roadmap
 
-* Integration with real GPS devices
-* Mobile apps (driver + customer)
-* AI-based optimization (dispatch, pricing)
-* Enterprise SaaS deployment
+* [ ] Improve UI/UX design
+* [ ] Add real-time notifications
+* [ ] Implement role-based access control
+* [ ] Optimize performance for large datasets
 
 ---
 
-END.
+## 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the repository
+2. Create a new branch
+3. Commit your changes
+4. Submit a pull request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+## 👨‍💻 Author
+
+Developed by **Adith**
+💡 Passionate about building scalable and secure applications
+
+---
+
+## ⭐ Final Note
+
+This project has undergone a full code quality and security review and is now **ready for production deployment**.
+
+If you find this project useful, feel free to ⭐ the repository!
